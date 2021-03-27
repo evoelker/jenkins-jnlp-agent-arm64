@@ -1,0 +1,36 @@
+pipeline {
+    agent {
+        kubernetes {
+            cloud 'MasterPi ARM Cluster'
+            defaultContainer 'jnlp'
+            inheritFrom 'kube-worker-dind'
+            namespace 'ci-cd'
+        }
+    }
+    stages {
+        stage('Build Docker Image') {
+            steps {
+                container('dind-build') {
+                    script {
+                        app = docker.build("eryk81/jenkins-jnlp-agent-arm64", "-f ./11/debian/Dockerfile .")
+                        app.inside {
+                            sh 'echo $(curl localhost:8080)'
+                        }
+                    }
+                }
+            }
+        }
+        stage('Push Docker Image') {
+            steps {
+                container('dind-build') {
+                    script {
+                        docker.withRegistry('https://registry.hub.docker.com', '323e0e0d-ab6e-4a64-ac62-c10634c48c47') {
+                            app.push("${REVNUMBER}")
+                            app.push("latest")
+                        }
+                    }
+                }
+            }
+        }
+    }
+}
